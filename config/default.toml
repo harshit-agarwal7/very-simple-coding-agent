@@ -1,0 +1,8 @@
+# Default configuration for the Very Simple Coding Agent.
+# All values here are overridden by environment variables or a user config file.
+
+provider = "openrouter"
+model = "arcee-ai/trinity-large-preview:free"
+max_tokens = 4096
+max_history_tokens = 80000
+system_prompt = ""
