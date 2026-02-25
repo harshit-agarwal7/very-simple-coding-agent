@@ -24,3 +24,4 @@
 
 ## Others
 - Use the astarl ecosystem (uv, ruff, etc) as much as possible for requirement management, linitng, etc
+- Please suggest a commit message when you are done with a set of changes.
