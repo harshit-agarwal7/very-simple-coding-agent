@@ -1,7 +1,5 @@
 """Entry point: parses CLI arguments, loads config, boots the REPL."""
 
-from __future__ import annotations
-
 import argparse
 import asyncio
 import logging

@@ -1,7 +1,5 @@
 """Execute-command tool: runs a shell command (requires approval)."""
 
-from __future__ import annotations
-
 import asyncio
 import logging
 

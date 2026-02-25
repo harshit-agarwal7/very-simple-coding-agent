@@ -1,7 +1,5 @@
 """Tool executor: dispatches tool calls with an approval gate for unsafe tools."""
 
-from __future__ import annotations
-
 import asyncio
 import logging
 from typing import Any

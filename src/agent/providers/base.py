@@ -1,7 +1,5 @@
 """Abstract base class for LLM provider adapters."""
 
-from __future__ import annotations
-
 from abc import ABC, abstractmethod
 
 from agent.models import Message, ToolDefinition, Usage

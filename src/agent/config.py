@@ -1,7 +1,5 @@
 """Configuration loader: reads TOML defaults then applies env-var overrides."""
 
-from __future__ import annotations
-
 import logging
 import os
 import tomllib

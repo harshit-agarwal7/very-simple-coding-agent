@@ -1,7 +1,5 @@
 """Tool registry: maps tool names to their definitions and implementations."""
 
-from __future__ import annotations
-
 from collections.abc import Callable, Coroutine
 from typing import Any
 

@@ -1,7 +1,5 @@
 """Write-file tool: writes content to a file (requires approval)."""
 
-from __future__ import annotations
-
 import logging
 from pathlib import Path
 

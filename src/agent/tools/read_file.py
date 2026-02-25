@@ -1,7 +1,5 @@
 """Read-file tool: reads the content of a file from the filesystem."""
 
-from __future__ import annotations
-
 import logging
 from pathlib import Path
 

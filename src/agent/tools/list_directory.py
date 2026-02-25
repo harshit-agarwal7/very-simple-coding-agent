@@ -1,7 +1,5 @@
 """List-directory tool: lists files and directories at a given path."""
 
-from __future__ import annotations
-
 import logging
 from pathlib import Path
 

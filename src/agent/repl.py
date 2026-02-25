@@ -1,7 +1,5 @@
 """Async interactive REPL for the coding agent."""
 
-from __future__ import annotations
-
 import asyncio
 import logging
 

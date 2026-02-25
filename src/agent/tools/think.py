@@ -1,7 +1,5 @@
 """Think pseudo-tool: lets the agent reason without producing visible output."""
 
-from __future__ import annotations
-
 import logging
 
 from agent.models import ToolDefinition, ToolSafety

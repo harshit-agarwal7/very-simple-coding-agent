@@ -1,7 +1,5 @@
 """ReAct agent loop: Reason → Act → Observe → repeat."""
 
-from __future__ import annotations
-
 import logging
 
 from agent.memory import History
