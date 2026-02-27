@@ -46,7 +46,7 @@ def main() -> None:
     # Lazy imports so startup is fast when --help is used.
     from agent.config import load_config
     from agent.providers import get_provider
-    from agent.repl import run_repl
+    from agent.repl import console, run_repl
 
     config_path = Path(args.config) if args.config else None
 
@@ -56,7 +56,7 @@ def main() -> None:
         print(f"Configuration error: {exc}", file=sys.stderr)
         sys.exit(1)
 
-    provider = get_provider(config)
+    provider = get_provider(config, console=console)
 
     # Agent operates on the current working directory.
     cwd = os.getcwd()

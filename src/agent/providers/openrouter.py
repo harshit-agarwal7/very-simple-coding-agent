@@ -2,11 +2,13 @@
 
 import json
 import logging
-import sys
 from typing import Any
 
 from openai import AsyncOpenAI
 from openai.types.chat import ChatCompletionChunk
+from rich.console import Console
+from rich.live import Live
+from rich.markdown import Markdown
 
 from agent.models import Message, Role, ToolCall, ToolDefinition, Usage
 from agent.providers.base import ProviderAdapter
@@ -27,12 +29,13 @@ class OpenRouterAdapter(ProviderAdapter):
         api_key: OpenRouter API key (``OPENROUTER_API_KEY``).
     """
 
-    def __init__(self, api_key: str) -> None:
+    def __init__(self, api_key: str, console: Console | None = None) -> None:
         self._client = AsyncOpenAI(
             api_key=api_key,
             base_url=_OPENROUTER_BASE_URL,
             default_headers=_EXTRA_HEADERS,
         )
+        self._console = console if console is not None else Console()
 
     # ------------------------------------------------------------------
     # Message formatting
@@ -112,7 +115,7 @@ class OpenRouterAdapter(ProviderAdapter):
         max_tokens: int,
         system_prompt: str = "",
     ) -> tuple[Message, Usage]:
-        """Stream a completion from OpenRouter, printing text tokens live.
+        """Stream a completion from OpenRouter, rendering markdown live.
 
         Args:
             messages: Full conversation history.
@@ -152,42 +155,44 @@ class OpenRouterAdapter(ProviderAdapter):
         raw_stream = await self._client.chat.completions.create(**kwargs)
         stream: AsyncStream[ChatCompletionChunk] = raw_stream
 
-        async for chunk in stream:
-            # Capture usage from the final chunk (stream_options).
-            if chunk.usage:
-                usage = Usage(
-                    input_tokens=chunk.usage.prompt_tokens,
-                    output_tokens=chunk.usage.completion_tokens,
-                )
+        accumulated_text = ""
+        with Live(
+            Markdown(""),
+            console=self._console,
+            refresh_per_second=15,
+            auto_refresh=True
+        ) as live:
+            async for chunk in stream:
+                # Capture usage from the final chunk (stream_options).
+                if chunk.usage:
+                    usage = Usage(
+                        input_tokens=chunk.usage.prompt_tokens,
+                        output_tokens=chunk.usage.completion_tokens,
+                    )
 
-            if not chunk.choices:
-                continue
+                if not chunk.choices:
+                    continue
 
-            delta = chunk.choices[0].delta
+                delta = chunk.choices[0].delta
 
-            # Stream text tokens to stdout.
-            if delta.content:
-                sys.stdout.write(delta.content)
-                sys.stdout.flush()
-                text_parts.append(delta.content)
+                # Accumulate and render text tokens as markdown.
+                if delta.content:
+                    accumulated_text += delta.content
+                    text_parts.append(delta.content)
+                    live.update(Markdown(accumulated_text, code_theme='github-dark'), refresh=True)
 
-            # Accumulate tool call fragments.
-            if delta.tool_calls:
-                for tc_delta in delta.tool_calls:
-                    idx = tc_delta.index
-                    if idx not in tool_calls_acc:
-                        tool_calls_acc[idx] = {"id": "", "name": "", "args": ""}
-                    if tc_delta.id:
-                        tool_calls_acc[idx]["id"] = tc_delta.id
-                    if tc_delta.function and tc_delta.function.name:
-                        tool_calls_acc[idx]["name"] = tc_delta.function.name
-                    if tc_delta.function and tc_delta.function.arguments:
-                        tool_calls_acc[idx]["args"] += tc_delta.function.arguments
-
-        # Print newline after streamed text so the next prompt starts cleanly.
-        if text_parts:
-            sys.stdout.write("\n")
-            sys.stdout.flush()
+                # Accumulate tool call fragments.
+                if delta.tool_calls:
+                    for tc_delta in delta.tool_calls:
+                        idx = tc_delta.index
+                        if idx not in tool_calls_acc:
+                            tool_calls_acc[idx] = {"id": "", "name": "", "args": ""}
+                        if tc_delta.id:
+                            tool_calls_acc[idx]["id"] = tc_delta.id
+                        if tc_delta.function and tc_delta.function.name:
+                            tool_calls_acc[idx]["name"] = tc_delta.function.name
+                        if tc_delta.function and tc_delta.function.arguments:
+                            tool_calls_acc[idx]["args"] += tc_delta.function.arguments
 
         # Assemble tool calls.
         assembled_tool_calls: list[ToolCall] = []

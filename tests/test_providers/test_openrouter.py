@@ -126,7 +126,7 @@ class TestOpenRouterAdapter:
 
     # --- stream_completion ---
 
-    async def test_stream_completion_text_only(self, capsys: pytest.CaptureFixture[str]) -> None:
+    async def test_stream_completion_text_only(self) -> None:
         adapter = self._make_adapter()
         chunks = [
             _make_chunk(content="Hello"),
@@ -151,8 +151,6 @@ class TestOpenRouterAdapter:
         assert message.tool_calls == []
         assert usage.input_tokens == 10
         assert usage.output_tokens == 5
-        captured = capsys.readouterr()
-        assert "Hello" in captured.out
 
     async def test_stream_completion_with_tool_call(self) -> None:
         adapter = self._make_adapter()
