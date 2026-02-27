@@ -4,6 +4,7 @@ import asyncio
 import logging
 
 from rich.console import Console
+from rich.theme import Theme
 
 from agent.loop import run_turn
 from agent.memory import History
@@ -13,7 +14,8 @@ from agent.tools.executor import ToolExecutor
 
 logger = logging.getLogger(__name__)
 
-console = Console()
+_WARM_THEME = Theme({"markdown.code": "bold #e8a87c"})
+console = Console(theme=_WARM_THEME)
 
 _WELCOME = """\
 [bold green]Very Simple Coding Agent[/bold green]  [dim]powered by {model}[/dim]

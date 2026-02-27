@@ -10,6 +10,7 @@ from rich.console import Console
 from rich.live import Live
 from rich.markdown import Markdown
 from rich.spinner import Spinner
+from rich.theme import Theme
 
 from agent.models import Message, Role, ToolCall, ToolDefinition, Usage
 from agent.providers.base import ProviderAdapter
@@ -36,7 +37,8 @@ class OpenRouterAdapter(ProviderAdapter):
             base_url=_OPENROUTER_BASE_URL,
             default_headers=_EXTRA_HEADERS,
         )
-        self._console = console if console is not None else Console()
+        _warm_theme = Theme({"markdown.code": "bold #e8a87c"})
+        self._console = console if console is not None else Console(theme=_warm_theme)
 
     # ------------------------------------------------------------------
     # Message formatting
@@ -180,7 +182,7 @@ class OpenRouterAdapter(ProviderAdapter):
                 if delta.content:
                     accumulated_text += delta.content
                     text_parts.append(delta.content)
-                    live.update(Markdown(accumulated_text, code_theme='github-dark'), refresh=True)
+                    live.update(Markdown(accumulated_text, code_theme="monokai"), refresh=True)
 
                 # Accumulate tool call fragments.
                 if delta.tool_calls:
