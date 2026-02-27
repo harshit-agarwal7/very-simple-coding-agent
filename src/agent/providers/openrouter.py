@@ -9,6 +9,7 @@ from openai.types.chat import ChatCompletionChunk
 from rich.console import Console
 from rich.live import Live
 from rich.markdown import Markdown
+from rich.spinner import Spinner
 
 from agent.models import Message, Role, ToolCall, ToolDefinition, Usage
 from agent.providers.base import ProviderAdapter
@@ -152,16 +153,16 @@ class OpenRouterAdapter(ProviderAdapter):
 
         from openai import AsyncStream
 
-        raw_stream = await self._client.chat.completions.create(**kwargs)
-        stream: AsyncStream[ChatCompletionChunk] = raw_stream
-
         accumulated_text = ""
         with Live(
-            Markdown(""),
+            Spinner("dots", text=" Thinking…"),
             console=self._console,
             refresh_per_second=15,
-            auto_refresh=True
+            auto_refresh=True,
         ) as live:
+            raw_stream = await self._client.chat.completions.create(**kwargs)
+            stream: AsyncStream[ChatCompletionChunk] = raw_stream
+
             async for chunk in stream:
                 # Capture usage from the final chunk (stream_options).
                 if chunk.usage:
