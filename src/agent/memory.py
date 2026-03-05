@@ -24,6 +24,7 @@ class History:
     def __init__(self, max_history_tokens: int = 80_000) -> None:
         self._messages: list[Message] = []
         self._usage: Usage = Usage()
+        self._context_tokens: int = 0
         self.max_history_tokens = max_history_tokens
 
     # ------------------------------------------------------------------
@@ -46,6 +47,7 @@ class History:
         """
         self._usage.input_tokens += usage.input_tokens
         self._usage.output_tokens += usage.output_tokens
+        self._context_tokens = usage.input_tokens + usage.output_tokens
 
     @property
     def messages(self) -> list[Message]:
@@ -61,9 +63,23 @@ class History:
         )
 
     @property
+    def context_tokens(self) -> int:
+        """Token count from the most recent API call (input + output).
+
+        Used as a proxy for the next call's context window size.
+        """
+        return self._context_tokens
+
+    @property
     def is_over_limit(self) -> bool:
-        """True if cumulative usage has exceeded *max_history_tokens*."""
-        return self._usage.total > self.max_history_tokens
+        """True if the last call's combined input+output tokens exceeded *max_history_tokens*.
+
+        Uses the sum of the most recent call's input and output tokens as a proxy
+        for the next call's context size, since the assistant response is appended
+        to history before this check runs.  Cumulative usage is tracked separately
+        via :attr:`usage` for cost reporting.
+        """
+        return self._context_tokens > self.max_history_tokens
 
     # ------------------------------------------------------------------
     # Compaction
@@ -94,9 +110,11 @@ class History:
             )
         ]
         self._usage = Usage()
+        self._context_tokens = 0
         logger.info("History compacted to summary")
 
     def clear(self) -> None:
         """Wipe the full history and reset usage counters."""
         self._messages = []
         self._usage = Usage()
+        self._context_tokens = 0

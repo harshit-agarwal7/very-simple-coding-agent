@@ -38,6 +38,19 @@ class TestHistory:
         assert h.usage.output_tokens == 125
         assert h.usage.total == 425
 
+    def test_context_tokens_reflects_last_call(self) -> None:
+        h = History()
+        h.record_usage(Usage(input_tokens=100, output_tokens=50))
+        assert h.context_tokens == 150
+        h.record_usage(Usage(input_tokens=200, output_tokens=60))
+        assert h.context_tokens == 260  # only last call, not cumulative
+
+    def test_context_tokens_resets_on_clear(self) -> None:
+        h = History()
+        h.record_usage(Usage(input_tokens=100, output_tokens=50))
+        h.clear()
+        assert h.context_tokens == 0
+
     def test_is_over_limit_false(self) -> None:
         h = History(max_history_tokens=1000)
         h.record_usage(Usage(input_tokens=400, output_tokens=400))
@@ -45,16 +58,31 @@ class TestHistory:
 
     def test_is_over_limit_true(self) -> None:
         h = History(max_history_tokens=100)
-        h.record_usage(Usage(input_tokens=60, output_tokens=60))
+        h.record_usage(Usage(input_tokens=150, output_tokens=20))
+        assert h.is_over_limit is True
+
+    def test_is_over_limit_uses_last_call_not_cumulative(self) -> None:
+        # Cumulative tokens (60+20 + 70+20 = 170) exceed the limit, but context
+        # size is the most recent call's combined tokens (70+20 = 90), which does not.
+        h = History(max_history_tokens=100)
+        h.record_usage(Usage(input_tokens=60, output_tokens=20))  # turn 1
+        h.record_usage(Usage(input_tokens=70, output_tokens=20))  # turn 2
+        assert h.is_over_limit is False
+
+    def test_is_over_limit_includes_output_tokens(self) -> None:
+        h = History(max_history_tokens=100)
+        h.record_usage(Usage(input_tokens=80, output_tokens=30))  # combined 110 > 100
         assert h.is_over_limit is True
 
     def test_clear(self) -> None:
-        h = History()
+        h = History(max_history_tokens=5)
         h.append(Message(role=Role.USER, content="x"))
         h.record_usage(Usage(input_tokens=10, output_tokens=5))
+        assert h.is_over_limit is True
         h.clear()
         assert h.messages == []
         assert h.usage.total == 0
+        assert h.is_over_limit is False
 
     async def test_compact(self) -> None:
         h = History()
@@ -71,8 +99,9 @@ class TestHistory:
         assert len(h.messages) == 1
         assert h.messages[0].role == Role.ASSISTANT
         assert "User greeted" in h.messages[0].content
-        # Usage should be reset.
+        # Usage and context size proxy should be reset.
         assert h.usage.total == 0
+        assert h.is_over_limit is False
 
         mock_provider.summarize.assert_called_once()
 
