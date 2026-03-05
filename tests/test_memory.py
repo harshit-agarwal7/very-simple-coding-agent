@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from unittest.mock import AsyncMock
+from unittest.mock import ANY, AsyncMock
 
 from agent.memory import History
 from agent.models import Message, Role, Usage
@@ -13,6 +13,7 @@ class TestHistory:
         h = History()
         assert h.messages == []
         assert h.usage.total == 0
+        assert h.context_tokens == 0
         assert h.is_over_limit is False
 
     def test_append(self) -> None:
@@ -54,6 +55,12 @@ class TestHistory:
     def test_is_over_limit_false(self) -> None:
         h = History(max_history_tokens=1000)
         h.record_usage(Usage(input_tokens=400, output_tokens=400))
+        assert h.is_over_limit is False
+
+    def test_is_over_limit_at_boundary(self) -> None:
+        # is_over_limit uses >, so exactly at the limit should be False
+        h = History(max_history_tokens=100)
+        h.record_usage(Usage(input_tokens=60, output_tokens=40))  # combined == 100
         assert h.is_over_limit is False
 
     def test_is_over_limit_true(self) -> None:
@@ -98,12 +105,22 @@ class TestHistory:
         # History should be a single summary message.
         assert len(h.messages) == 1
         assert h.messages[0].role == Role.ASSISTANT
+        assert h.messages[0].content.startswith("[Conversation summary]")
         assert "User greeted" in h.messages[0].content
         # Usage and context size proxy should be reset.
         assert h.usage.total == 0
+        assert h.context_tokens == 0
         assert h.is_over_limit is False
 
-        mock_provider.summarize.assert_called_once()
+        mock_provider.summarize.assert_called_once_with(ANY, "anthropic/claude-opus-4-6")
+
+    def test_usage_property_returns_copy(self) -> None:
+        h = History()
+        h.record_usage(Usage(input_tokens=100, output_tokens=50))
+        u = h.usage
+        original_input = u.input_tokens
+        u.input_tokens = 9999
+        assert h.usage.input_tokens == original_input
 
     async def test_compact_empty_history(self) -> None:
         h = History()
