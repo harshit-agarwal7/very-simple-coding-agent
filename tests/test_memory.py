@@ -2,7 +2,9 @@
 
 from __future__ import annotations
 
-from unittest.mock import ANY, AsyncMock
+from unittest.mock import ANY
+
+from pytest_mock import MockerFixture
 
 from agent.memory import History
 from agent.models import Message, Role, Usage
@@ -91,14 +93,14 @@ class TestHistory:
         assert h.usage.total == 0
         assert h.is_over_limit is False
 
-    async def test_compact(self) -> None:
+    async def test_compact(self, mocker: MockerFixture) -> None:
         h = History()
         h.append(Message(role=Role.USER, content="Hello"))
         h.append(Message(role=Role.ASSISTANT, content="Hi there"))
         h.record_usage(Usage(input_tokens=50, output_tokens=20))
 
-        mock_provider = AsyncMock()
-        mock_provider.summarize = AsyncMock(return_value="User greeted, assistant replied.")
+        mock_provider = mocker.AsyncMock()
+        mock_provider.summarize = mocker.AsyncMock(return_value="User greeted, assistant replied.")
 
         await h.compact(mock_provider, model="anthropic/claude-opus-4-6")
 
@@ -122,9 +124,9 @@ class TestHistory:
         u.input_tokens = 9999
         assert h.usage.input_tokens == original_input
 
-    async def test_compact_empty_history(self) -> None:
+    async def test_compact_empty_history(self, mocker: MockerFixture) -> None:
         h = History()
-        mock_provider = AsyncMock()
+        mock_provider = mocker.AsyncMock()
         # Should not raise, should not call summarize.
         await h.compact(mock_provider, model="any/model")
         mock_provider.summarize.assert_not_called()

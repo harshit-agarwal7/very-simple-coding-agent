@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from unittest.mock import AsyncMock
+from pytest_mock import MockerFixture
 
 from agent.loop import run_turn
 from agent.memory import History
@@ -43,12 +43,12 @@ def _tool_response(name: str, arguments: dict | None = None) -> tuple[Message, U
 
 
 class TestRunTurn:
-    async def test_single_text_response(self) -> None:
+    async def test_single_text_response(self, mocker: MockerFixture) -> None:
         """Agent responds with text only — no tools called."""
         history = History()
-        provider = AsyncMock()
-        provider.stream_completion = AsyncMock(return_value=_plain_response("Hello!"))
-        executor = AsyncMock(spec=ToolExecutor)
+        provider = mocker.AsyncMock()
+        provider.stream_completion = mocker.AsyncMock(return_value=_plain_response("Hello!"))
+        executor = mocker.AsyncMock(spec=ToolExecutor)
         cfg = _make_config()
 
         await run_turn("Hi", history, provider, executor, cfg)
@@ -66,18 +66,18 @@ class TestRunTurn:
 
         executor.execute.assert_not_called()
 
-    async def test_tool_call_then_text_response(self) -> None:
+    async def test_tool_call_then_text_response(self, mocker: MockerFixture) -> None:
         """Agent calls a tool then responds with text."""
         history = History()
-        provider = AsyncMock()
-        provider.stream_completion = AsyncMock(
+        provider = mocker.AsyncMock()
+        provider.stream_completion = mocker.AsyncMock(
             side_effect=[
                 _tool_response("think", {"thought": "Let me reason"}),
                 _plain_response("All done."),
             ]
         )
-        executor = AsyncMock(spec=ToolExecutor)
-        executor.execute = AsyncMock(
+        executor = mocker.AsyncMock(spec=ToolExecutor)
+        executor.execute = mocker.AsyncMock(
             return_value=ToolResult(
                 tool_call_id="tc-1",
                 name="think",
@@ -100,7 +100,7 @@ class TestRunTurn:
         assert provider.stream_completion.call_count == 2
         executor.execute.assert_called_once()
 
-    async def test_multiple_tool_calls_in_one_response(self) -> None:
+    async def test_multiple_tool_calls_in_one_response(self, mocker: MockerFixture) -> None:
         """Multiple tool calls in a single response are all executed."""
         history = History()
 
@@ -111,15 +111,15 @@ class TestRunTurn:
             Usage(input_tokens=30, output_tokens=15),
         )
 
-        provider = AsyncMock()
-        provider.stream_completion = AsyncMock(
+        provider = mocker.AsyncMock()
+        provider.stream_completion = mocker.AsyncMock(
             side_effect=[
                 multi_tool_response,
                 _plain_response("Done with both."),
             ]
         )
-        executor = AsyncMock(spec=ToolExecutor)
-        executor.execute = AsyncMock(
+        executor = mocker.AsyncMock(spec=ToolExecutor)
+        executor.execute = mocker.AsyncMock(
             side_effect=[
                 ToolResult(tool_call_id="tc-1", name="think", output="a"),
                 ToolResult(tool_call_id="tc-2", name="think", output="b"),
@@ -131,18 +131,18 @@ class TestRunTurn:
 
         assert executor.execute.call_count == 2
 
-    async def test_max_iterations_guard(self) -> None:
+    async def test_max_iterations_guard(self, mocker: MockerFixture) -> None:
         """Loop exits after MAX_ITERATIONS without infinite looping."""
         from agent.loop import _MAX_ITERATIONS
 
         history = History()
-        provider = AsyncMock()
+        provider = mocker.AsyncMock()
         # Always return a tool call — never a final text response.
-        provider.stream_completion = AsyncMock(
+        provider.stream_completion = mocker.AsyncMock(
             return_value=_tool_response("think", {"thought": "hmm"})
         )
-        executor = AsyncMock(spec=ToolExecutor)
-        executor.execute = AsyncMock(
+        executor = mocker.AsyncMock(spec=ToolExecutor)
+        executor.execute = mocker.AsyncMock(
             return_value=ToolResult(tool_call_id="tc-1", name="think", output="ok")
         )
         cfg = _make_config()
@@ -152,17 +152,17 @@ class TestRunTurn:
         # Should have stopped at _MAX_ITERATIONS, not gone on forever.
         assert provider.stream_completion.call_count == _MAX_ITERATIONS
 
-    async def test_usage_accumulates_across_iterations(self) -> None:
+    async def test_usage_accumulates_across_iterations(self, mocker: MockerFixture) -> None:
         history = History()
-        provider = AsyncMock()
-        provider.stream_completion = AsyncMock(
+        provider = mocker.AsyncMock()
+        provider.stream_completion = mocker.AsyncMock(
             side_effect=[
                 _tool_response("think", {"thought": "x"}),
                 _plain_response("ok"),
             ]
         )
-        executor = AsyncMock(spec=ToolExecutor)
-        executor.execute = AsyncMock(
+        executor = mocker.AsyncMock(spec=ToolExecutor)
+        executor.execute = mocker.AsyncMock(
             return_value=ToolResult(tool_call_id="tc-1", name="think", output="x")
         )
         cfg = _make_config()
@@ -173,14 +173,14 @@ class TestRunTurn:
         assert history.usage.input_tokens == 30
         assert history.usage.output_tokens == 15
 
-    async def test_history_messages_passed_to_provider(self) -> None:
+    async def test_history_messages_passed_to_provider(self, mocker: MockerFixture) -> None:
         """Provider receives full history including previous messages."""
         history = History()
         history.append(Message(role=Role.ASSISTANT, content="Previous response"))
 
-        provider = AsyncMock()
-        provider.stream_completion = AsyncMock(return_value=_plain_response("Hello"))
-        executor = AsyncMock(spec=ToolExecutor)
+        provider = mocker.AsyncMock()
+        provider.stream_completion = mocker.AsyncMock(return_value=_plain_response("Hello"))
+        executor = mocker.AsyncMock(spec=ToolExecutor)
         cfg = _make_config()
 
         await run_turn("New message", history, provider, executor, cfg)

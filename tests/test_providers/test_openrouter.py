@@ -4,9 +4,10 @@ from __future__ import annotations
 
 import json
 from typing import Any
-from unittest.mock import AsyncMock, MagicMock, patch
+from unittest.mock import MagicMock
 
 import pytest
+from pytest_mock import MockerFixture
 
 from agent.models import Message, Role, ToolCall, ToolDefinition, ToolSafety
 from agent.providers.openrouter import OpenRouterAdapter
@@ -126,7 +127,7 @@ class TestOpenRouterAdapter:
 
     # --- stream_completion ---
 
-    async def test_stream_completion_text_only(self) -> None:
+    async def test_stream_completion_text_only(self, mocker: MockerFixture) -> None:
         adapter = self._make_adapter()
         chunks = [
             _make_chunk(content="Hello"),
@@ -135,24 +136,24 @@ class TestOpenRouterAdapter:
         ]
         mock_stream = _AsyncIterator(chunks)
 
-        with patch.object(
+        mocker.patch.object(
             adapter._client.chat.completions,
             "create",
-            new=AsyncMock(return_value=mock_stream),
-        ):
-            message, usage = await adapter.stream_completion(
-                messages=[Message(role=Role.USER, content="Hi")],
-                tools=[],
-                model="anthropic/claude-opus-4-6",
-                max_tokens=256,
-            )
+            new=mocker.AsyncMock(return_value=mock_stream),
+        )
+        message, usage = await adapter.stream_completion(
+            messages=[Message(role=Role.USER, content="Hi")],
+            tools=[],
+            model="anthropic/claude-opus-4-6",
+            max_tokens=256,
+        )
 
         assert message.content == "Hello world"
         assert message.tool_calls == []
         assert usage.input_tokens == 10
         assert usage.output_tokens == 5
 
-    async def test_stream_completion_with_tool_call(self) -> None:
+    async def test_stream_completion_with_tool_call(self, mocker: MockerFixture) -> None:
         adapter = self._make_adapter()
         args_json = json.dumps({"path": "/tmp/foo.txt"})
         chunks = [
@@ -163,17 +164,17 @@ class TestOpenRouterAdapter:
         ]
         mock_stream = _AsyncIterator(chunks)
 
-        with patch.object(
+        mocker.patch.object(
             adapter._client.chat.completions,
             "create",
-            new=AsyncMock(return_value=mock_stream),
-        ):
-            message, usage = await adapter.stream_completion(
-                messages=[Message(role=Role.USER, content="Read that file")],
-                tools=[],
-                model="anthropic/claude-opus-4-6",
-                max_tokens=256,
-            )
+            new=mocker.AsyncMock(return_value=mock_stream),
+        )
+        message, usage = await adapter.stream_completion(
+            messages=[Message(role=Role.USER, content="Read that file")],
+            tools=[],
+            model="anthropic/claude-opus-4-6",
+            max_tokens=256,
+        )
 
         assert len(message.tool_calls) == 1
         tc = message.tool_calls[0]
@@ -181,20 +182,20 @@ class TestOpenRouterAdapter:
         assert tc.arguments == {"path": "/tmp/foo.txt"}
         assert usage.input_tokens == 20
 
-    async def test_stream_completion_system_prompt_injected(self) -> None:
+    async def test_stream_completion_system_prompt_injected(self, mocker: MockerFixture) -> None:
         adapter = self._make_adapter()
         chunks = [_make_chunk(usage={"prompt_tokens": 5, "completion_tokens": 3})]
         mock_stream = _AsyncIterator(chunks)
 
-        create_mock = AsyncMock(return_value=mock_stream)
-        with patch.object(adapter._client.chat.completions, "create", new=create_mock):
-            await adapter.stream_completion(
-                messages=[],
-                tools=[],
-                model="openai/gpt-4o",
-                max_tokens=64,
-                system_prompt="Be helpful.",
-            )
+        create_mock = mocker.AsyncMock(return_value=mock_stream)
+        mocker.patch.object(adapter._client.chat.completions, "create", new=create_mock)
+        await adapter.stream_completion(
+            messages=[],
+            tools=[],
+            model="openai/gpt-4o",
+            max_tokens=64,
+            system_prompt="Be helpful.",
+        )
 
         call_kwargs = create_mock.call_args.kwargs
         messages_sent = call_kwargs["messages"]
@@ -203,20 +204,20 @@ class TestOpenRouterAdapter:
 
     # --- summarize ---
 
-    async def test_summarize(self) -> None:
+    async def test_summarize(self, mocker: MockerFixture) -> None:
         adapter = self._make_adapter()
         mock_response = MagicMock()
         mock_response.choices[0].message.content = "A brief summary."
 
-        with patch.object(
+        mocker.patch.object(
             adapter._client.chat.completions,
             "create",
-            new=AsyncMock(return_value=mock_response),
-        ):
-            result = await adapter.summarize(
-                messages=[Message(role=Role.USER, content="Hello")],
-                model="anthropic/claude-opus-4-6",
-            )
+            new=mocker.AsyncMock(return_value=mock_response),
+        )
+        result = await adapter.summarize(
+            messages=[Message(role=Role.USER, content="Hello")],
+            model="anthropic/claude-opus-4-6",
+        )
 
         assert result == "A brief summary."
 

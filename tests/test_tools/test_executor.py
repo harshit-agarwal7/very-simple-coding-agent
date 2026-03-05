@@ -2,9 +2,7 @@
 
 from __future__ import annotations
 
-from unittest.mock import AsyncMock, patch
-
-import pytest
+from pytest_mock import MockerFixture
 
 import agent.tools  # noqa: F401 — ensure tools are registered
 from agent.models import ToolCall
@@ -25,11 +23,11 @@ def _make_tool_call(name: str, arguments: dict | None = None) -> ToolCall:
 
 
 class TestToolExecutor:
-    async def test_executes_safe_tool_without_prompt(self) -> None:
+    async def test_executes_safe_tool_without_prompt(self, mocker: MockerFixture) -> None:
         executor = ToolExecutor()
         tc = _make_tool_call("think", {"thought": "testing"})
-        with patch.object(executor, "_request_approval") as mock_approval:
-            result = await executor.execute(tc)
+        mock_approval = mocker.patch.object(executor, "_request_approval")
+        result = await executor.execute(tc)
         mock_approval.assert_not_called()
         assert result.output == "testing"
         assert result.is_error is False
@@ -41,31 +39,29 @@ class TestToolExecutor:
         assert result.is_error is True
         assert "unknown tool" in result.output.lower()
 
-    async def test_approval_granted_executes_tool(self, monkeypatch: pytest.MonkeyPatch) -> None:
+    async def test_approval_granted_executes_tool(self, mocker: MockerFixture) -> None:
         executor = ToolExecutor()
         tc = _make_tool_call("write_file", {"path": "/tmp/test.txt", "content": "x"})
 
-        with (
-            patch.object(executor, "_request_approval", new=AsyncMock(return_value=True)),
-            patch("agent.tools.write_file.write_file", new=AsyncMock(return_value="ok")),
-        ):
-            # Directly patch fn in registry for this test.
-            original_fn = TOOL_REGISTRY["write_file"].fn
-            TOOL_REGISTRY["write_file"].fn = AsyncMock(return_value="written ok")
-            try:
-                result = await executor.execute(tc)
-            finally:
-                TOOL_REGISTRY["write_file"].fn = original_fn
+        mocker.patch.object(executor, "_request_approval", new=mocker.AsyncMock(return_value=True))
+        mocker.patch("agent.tools.write_file.write_file", new=mocker.AsyncMock(return_value="ok"))
+        # Directly patch fn in registry for this test.
+        original_fn = TOOL_REGISTRY["write_file"].fn
+        TOOL_REGISTRY["write_file"].fn = mocker.AsyncMock(return_value="written ok")
+        try:
+            result = await executor.execute(tc)
+        finally:
+            TOOL_REGISTRY["write_file"].fn = original_fn
 
         assert result.is_error is False
         assert result.output == "written ok"
 
-    async def test_approval_denied_returns_error(self) -> None:
+    async def test_approval_denied_returns_error(self, mocker: MockerFixture) -> None:
         executor = ToolExecutor()
         tc = _make_tool_call("write_file", {"path": "/tmp/x.txt", "content": "data"})
 
-        with patch.object(executor, "_request_approval", new=AsyncMock(return_value=False)):
-            result = await executor.execute(tc)
+        mocker.patch.object(executor, "_request_approval", new=mocker.AsyncMock(return_value=False))
+        result = await executor.execute(tc)
 
         assert result.is_error is True
         assert "denied" in result.output.lower()
