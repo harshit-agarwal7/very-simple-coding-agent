@@ -10,6 +10,7 @@
 - Use `logging`, never `print()` for diagnostics
 - No bare `except:` — always catch specific exceptions, log meaningful error messages.
 - No hardcoded secrets or magic numbers
+- No premature abstractions: don't create templates or helpers that are only used once. Inline values unless they're shared across 2+ call sites.
 
 ## Dependencies
 - Justify any new dependency before adding it
