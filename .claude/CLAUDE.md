@@ -20,8 +20,9 @@
 - Think about how you would verify the working of any code you add - first write the tests and then go about writing the code.
 - Write tests alongside implementation, not after
 - Run tests before presenting work as done
+- Ensure that whenever you make a change, you check if any existing tests need to be updated.
 - Run `ruff check` and `mypy` before finishing
 
 ## Others
 - Use the astarl ecosystem (uv, ruff, etc) as much as possible for requirement management, linitng, etc
-- Please suggest a commit message when you are done with a set of changes.
+-  Suggest a commit message by looking at all the uncommited changes when you are done with a set of changes.
