@@ -190,3 +190,65 @@ class TestRunTurn:
         # Should include previous response + new user message.
         assert any(m.content == "Previous response" for m in sent_messages)
         assert any(m.content == "New message" for m in sent_messages)
+
+
+class TestRunTurnOverrides:
+    async def test_tools_override_passed_to_provider(self, mocker: MockerFixture) -> None:
+        """tools_override replaces the registry tools sent to stream_completion."""
+        from agent.models import ToolDefinition, ToolSafety
+
+        override = [
+            ToolDefinition(name="read_file", description="x", parameters={}, safety=ToolSafety.SAFE)
+        ]
+        history = History()
+        provider = mocker.AsyncMock()
+        provider.stream_completion = mocker.AsyncMock(return_value=_plain_response())
+        executor = mocker.AsyncMock(spec=ToolExecutor)
+        cfg = _make_config()
+
+        await run_turn("hi", history, provider, executor, cfg, tools_override=override)
+
+        call_kwargs = provider.stream_completion.call_args.kwargs
+        assert call_kwargs["tools"] == override
+
+    async def test_system_prompt_override_passed_to_provider(self, mocker: MockerFixture) -> None:
+        """system_prompt_override replaces config.system_prompt."""
+        history = History()
+        provider = mocker.AsyncMock()
+        provider.stream_completion = mocker.AsyncMock(return_value=_plain_response())
+        executor = mocker.AsyncMock(spec=ToolExecutor)
+        cfg = _make_config()
+
+        await run_turn("hi", history, provider, executor, cfg, system_prompt_override="OVERRIDE")
+
+        call_kwargs = provider.stream_completion.call_args.kwargs
+        assert call_kwargs["system_prompt"] == "OVERRIDE"
+
+    async def test_no_override_uses_registry_tools(self, mocker: MockerFixture) -> None:
+        """Without tools_override, registry tools are used."""
+        from agent.tools.registry import get_tool_definitions
+
+        history = History()
+        provider = mocker.AsyncMock()
+        provider.stream_completion = mocker.AsyncMock(return_value=_plain_response())
+        executor = mocker.AsyncMock(spec=ToolExecutor)
+        cfg = _make_config()
+
+        await run_turn("hi", history, provider, executor, cfg)
+
+        call_kwargs = provider.stream_completion.call_args.kwargs
+        assert call_kwargs["tools"] == get_tool_definitions()
+
+    async def test_no_override_uses_config_system_prompt(self, mocker: MockerFixture) -> None:
+        """Without system_prompt_override, config.system_prompt is used."""
+        history = History()
+        provider = mocker.AsyncMock()
+        provider.stream_completion = mocker.AsyncMock(return_value=_plain_response())
+        executor = mocker.AsyncMock(spec=ToolExecutor)
+        cfg = _make_config()
+        cfg.system_prompt = "config prompt"
+
+        await run_turn("hi", history, provider, executor, cfg)
+
+        call_kwargs = provider.stream_completion.call_args.kwargs
+        assert call_kwargs["system_prompt"] == "config prompt"

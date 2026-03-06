@@ -37,7 +37,7 @@ async def think(thought: str) -> str:
     Returns:
         The same *thought* string (no side effects).
     """
-    logger.debug("think: %s", thought[:80])
+    logger.debug("think: %s", thought)
     return thought
 
 

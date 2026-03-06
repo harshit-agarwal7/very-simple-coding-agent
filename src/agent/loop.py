@@ -3,7 +3,7 @@
 import logging
 
 from agent.memory import History
-from agent.models import Config, Message, Role
+from agent.models import Config, Message, Role, ToolDefinition
 from agent.providers.base import ProviderAdapter
 from agent.tools.executor import ToolExecutor
 from agent.tools.registry import get_tool_definitions
@@ -20,6 +20,9 @@ async def run_turn(
     provider: ProviderAdapter,
     tool_executor: ToolExecutor,
     config: Config,
+    *,
+    tools_override: list[ToolDefinition] | None = None,
+    system_prompt_override: str | None = None,
 ) -> None:
     """Execute one full ReAct turn for a user message.
 
@@ -37,9 +40,14 @@ async def run_turn(
         provider: LLM provider adapter for streaming completions.
         tool_executor: Executor that dispatches tool calls (with approval gate).
         config: Agent runtime configuration.
+        tools_override: If provided, use these tool definitions instead of the registry.
+        system_prompt_override: If provided, use this system prompt instead of config's.
     """
     history.append(Message(role=Role.USER, content=user_input))
-    tools = get_tool_definitions()
+    tools = tools_override if tools_override is not None else get_tool_definitions()
+    system_prompt = (
+        system_prompt_override if system_prompt_override is not None else config.system_prompt
+    )
 
     for iteration in range(_MAX_ITERATIONS):
         logger.debug("loop iteration %d", iteration)
@@ -50,7 +58,7 @@ async def run_turn(
             tools=tools,
             model=config.model,
             max_tokens=config.max_tokens,
-            system_prompt=config.system_prompt,
+            system_prompt=system_prompt,
         )
         history.record_usage(usage)
         history.append(response_message)
