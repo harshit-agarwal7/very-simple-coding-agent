@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+from types import SimpleNamespace
 from typing import Any
 from unittest.mock import MagicMock
 
@@ -21,46 +22,44 @@ def _make_chunk(
     content: str | None = None,
     tool_calls: list[dict[str, Any]] | None = None,
     usage: dict[str, int] | None = None,
-) -> MagicMock:
+) -> SimpleNamespace:
     """Build a fake ChatCompletionChunk-like object."""
-    chunk = MagicMock()
-    chunk.usage = None
+    usage_obj = None
     if usage:
-        chunk.usage = MagicMock()
-        chunk.usage.prompt_tokens = usage["prompt_tokens"]
-        chunk.usage.completion_tokens = usage["completion_tokens"]
+        usage_obj = SimpleNamespace(
+            prompt_tokens=usage["prompt_tokens"],
+            completion_tokens=usage["completion_tokens"],
+        )
 
-    delta = MagicMock()
-    delta.content = content
-    delta.tool_calls = None
-
+    tc_deltas = None
     if tool_calls:
-        delta.tool_calls = []
-        for i, tc in enumerate(tool_calls):
-            tc_delta = MagicMock()
-            tc_delta.index = i
-            tc_delta.id = tc.get("id", "")
-            tc_delta.function = MagicMock()
-            tc_delta.function.name = tc.get("name", "")
-            tc_delta.function.arguments = tc.get("arguments", "")
-            delta.tool_calls.append(tc_delta)
+        tc_deltas = [
+            SimpleNamespace(
+                index=i,
+                id=tc.get("id", ""),
+                function=SimpleNamespace(
+                    name=tc.get("name", ""),
+                    arguments=tc.get("arguments", ""),
+                ),
+            )
+            for i, tc in enumerate(tool_calls)
+        ]
 
-    choice = MagicMock()
-    choice.delta = delta
-    chunk.choices = [choice]
-    return chunk
+    delta = SimpleNamespace(content=content, tool_calls=tc_deltas)
+    choice = SimpleNamespace(delta=delta)
+    return SimpleNamespace(usage=usage_obj, choices=[choice])
 
 
 class _AsyncIterator:
     """Simple async iterator wrapping a list of chunks."""
 
-    def __init__(self, chunks: list[MagicMock]) -> None:
+    def __init__(self, chunks: list[SimpleNamespace]) -> None:
         self._chunks = iter(chunks)
 
     def __aiter__(self) -> _AsyncIterator:
         return self
 
-    async def __anext__(self) -> MagicMock:
+    async def __anext__(self) -> SimpleNamespace:
         try:
             return next(self._chunks)
         except StopIteration:
