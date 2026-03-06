@@ -201,6 +201,37 @@ class TestOpenRouterAdapter:
         assert messages_sent[0]["role"] == "system"
         assert "Be helpful" in str(messages_sent[0]["content"])
 
+    async def test_stream_completion_tool_call_only_clears_spinner(
+        self, mocker: MockerFixture
+    ) -> None:
+        adapter = self._make_adapter()
+        args_json = json.dumps({"path": "/tmp/foo.txt"})
+        chunks = [
+            _make_chunk(
+                tool_calls=[{"id": "tc-1", "name": "read_file", "arguments": args_json}]
+            ),
+            _make_chunk(usage={"prompt_tokens": 20, "completion_tokens": 10}),
+        ]
+        mocker.patch.object(
+            adapter._client.chat.completions,
+            "create",
+            new=mocker.AsyncMock(return_value=_AsyncIterator(chunks)),
+        )
+
+        mock_live = MagicMock()
+        mock_live.__enter__ = MagicMock(return_value=mock_live)
+        mock_live.__exit__ = MagicMock(return_value=False)
+        mocker.patch("agent.providers.openrouter.Live", return_value=mock_live)
+
+        await adapter.stream_completion(
+            messages=[Message(role=Role.USER, content="Read that file")],
+            tools=[],
+            model="anthropic/claude-opus-4-6",
+            max_tokens=256,
+        )
+
+        mock_live.update.assert_called_with("")
+
     # --- summarize ---
 
     async def test_summarize(self, mocker: MockerFixture) -> None:

@@ -197,6 +197,10 @@ class OpenRouterAdapter(ProviderAdapter):
                         if tc_delta.function and tc_delta.function.arguments:
                             tool_calls_acc[idx]["args"] += tc_delta.function.arguments
 
+            # Clear the spinner if no text was generated (tool-call-only response).
+            if not accumulated_text:
+                live.update("")
+
         # Assemble tool calls.
         assembled_tool_calls: list[ToolCall] = []
         for idx in sorted(tool_calls_acc):
