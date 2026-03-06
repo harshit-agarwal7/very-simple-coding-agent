@@ -26,4 +26,4 @@
 
 ## Others
 - Use the astarl ecosystem (uv, ruff, etc) as much as possible for requirement management, linitng, etc
--  Suggest a commit message by looking at all the uncommited changes when you are done with a set of changes.
+- Suggest a commit message when you are done with a set of changes. Always run `git diff HEAD` and `git status` to see the full picture of all uncommitted changes across the entire repo — not just what was changed in the current session.
