@@ -9,17 +9,19 @@ from pathlib import Path
 
 
 def _setup_logging(verbose: bool) -> None:
-    """Configure root logger.
+    """Configure logging for the agent package only.
 
     Args:
         verbose: If True, set level to DEBUG; otherwise WARNING.
     """
     level = logging.DEBUG if verbose else logging.WARNING
-    logging.basicConfig(
-        level=level,
-        format="%(asctime)s [%(levelname)s] %(name)s: %(message)s",
-        stream=sys.stderr,
+    logger = logging.getLogger("agent")
+    logger.setLevel(level)
+    handler = logging.StreamHandler(sys.stderr)
+    handler.setFormatter(
+        logging.Formatter("%(asctime)s [%(levelname)s] %(name)s: %(message)s")
     )
+    logger.addHandler(handler)
 
 
 def main() -> None:
