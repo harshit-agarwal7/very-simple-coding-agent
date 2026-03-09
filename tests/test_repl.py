@@ -10,7 +10,7 @@ from pytest_mock import MockerFixture
 import agent.tools  # noqa: F401 — triggers tool registration  # isort: skip
 from agent.memory import History
 from agent.models import Config, Message, Role, ToolSafety
-from agent.repl import _PLAN_CONFIRM_MSG, _do_plan_turn
+from agent.repl import _PLAN_CONFIRM_MSG, _do_clear, _do_plan_turn
 from agent.tools.registry import get_safe_tool_names
 
 # ---------------------------------------------------------------------------
@@ -217,6 +217,25 @@ class TestPlanModeCommand:
         assert len(on_msgs) == 1
         assert len(off_msgs) == 1
 
+    async def test_clear_does_not_call_run_turn(self, mocker: MockerFixture) -> None:
+        """/clear then /quit never invokes run_turn."""
+        config = _make_config()
+        provider = mocker.AsyncMock()
+
+        mocker.patch("agent.repl.console.print")
+        mocker.patch("agent.repl.console.clear")
+        mock_run_turn = mocker.patch("agent.repl.run_turn", new_callable=AsyncMock)
+        mocker.patch("agent.repl._do_plan_turn", new_callable=AsyncMock)
+
+        inputs = iter(["/clear", "/quit"])
+        mocker.patch("builtins.input", side_effect=inputs)
+
+        from agent.repl import run_repl
+
+        await run_repl(config, provider)
+
+        mock_run_turn.assert_not_called()
+
     async def test_empty_input_skipped(self, mocker: MockerFixture) -> None:
         """Empty input lines are ignored; run_turn is never called for them."""
         config = _make_config()
@@ -227,6 +246,78 @@ class TestPlanModeCommand:
         mocker.patch("agent.repl._do_plan_turn", new_callable=AsyncMock)
 
         inputs = iter(["", "/quit"])
+        mocker.patch("builtins.input", side_effect=inputs)
+
+        from agent.repl import run_repl
+
+        await run_repl(config, provider)
+
+        mock_run_turn.assert_not_called()
+
+
+# ---------------------------------------------------------------------------
+# TestClearCommand
+# ---------------------------------------------------------------------------
+
+
+class TestClearCommand:
+    def test_clear_wipes_history_and_clears_screen(self, mocker: MockerFixture) -> None:
+        """_do_clear empties history and calls console.clear."""
+        history = History()
+        history.append(Message(role=Role.USER, content="hello"))
+        history.append(Message(role=Role.ASSISTANT, content="hi"))
+
+        mock_clear = mocker.patch("agent.repl.console.clear")
+        mock_print = mocker.patch("agent.repl.console.print")
+
+        _do_clear(history)
+
+        assert history.messages == []
+        assert history.usage.total == 0
+        mock_clear.assert_called_once()
+        mock_print.assert_called_once()
+
+    def test_clear_on_empty_history_is_safe(self, mocker: MockerFixture) -> None:
+        """_do_clear on an already-empty history does not raise."""
+        history = History()
+        mocker.patch("agent.repl.console.clear")
+        mocker.patch("agent.repl.console.print")
+
+        _do_clear(history)  # should not raise
+
+        assert history.messages == []
+
+    async def test_clear_command_dispatches_in_loop(self, mocker: MockerFixture) -> None:
+        """/clear in the REPL loop invokes _do_clear once."""
+        config = _make_config()
+        provider = mocker.AsyncMock()
+
+        mocker.patch("agent.repl.console.print")
+        mocker.patch("agent.repl.console.clear")
+        mocker.patch("agent.repl.run_turn", new_callable=AsyncMock)
+        mocker.patch("agent.repl._do_plan_turn", new_callable=AsyncMock)
+        mock_do_clear = mocker.patch("agent.repl._do_clear")
+
+        inputs = iter(["/clear", "/quit"])
+        mocker.patch("builtins.input", side_effect=inputs)
+
+        from agent.repl import run_repl
+
+        await run_repl(config, provider)
+
+        mock_do_clear.assert_called_once()
+
+    async def test_clear_does_not_invoke_run_turn(self, mocker: MockerFixture) -> None:
+        """/clear never triggers a model turn."""
+        config = _make_config()
+        provider = mocker.AsyncMock()
+
+        mocker.patch("agent.repl.console.print")
+        mocker.patch("agent.repl.console.clear")
+        mock_run_turn = mocker.patch("agent.repl.run_turn", new_callable=AsyncMock)
+        mocker.patch("agent.repl._do_plan_turn", new_callable=AsyncMock)
+
+        inputs = iter(["/clear", "/quit"])
         mocker.patch("builtins.input", side_effect=inputs)
 
         from agent.repl import run_repl

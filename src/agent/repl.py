@@ -24,6 +24,7 @@ _WELCOME = """\
 [bold green]Very Simple Coding Agent[/bold green]  [dim]powered by {model}[/dim]
 Type your message and press Enter. Special commands:
   [bold]/compact[/bold]  — summarise and compress conversation history
+  [bold]/clear[/bold]    — clear history and terminal display
   [bold]/plan[/bold]     — toggle plan mode (explore first, confirm before executing)
   [bold]/quit[/bold]     — exit the agent
 """
@@ -70,6 +71,10 @@ async def run_repl(
 
         if user_input.lower() == "/compact":
             await _do_compact(history, provider, config)
+            continue
+
+        if user_input.lower() == "/clear":
+            _do_clear(history)
             continue
 
         if user_input.lower() == "/plan":
@@ -175,6 +180,17 @@ async def _do_plan_turn(
         tool_executor=executor,
         config=config,
     )
+
+
+def _do_clear(history: History) -> None:
+    """Clear conversation history and the terminal display.
+
+    Args:
+        history: The history to wipe.
+    """
+    history.clear()
+    console.clear()
+    console.print("[dim]History and display cleared.[/dim]")
 
 
 async def _do_compact(
