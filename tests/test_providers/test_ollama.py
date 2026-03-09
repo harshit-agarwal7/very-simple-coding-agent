@@ -45,7 +45,7 @@ def _make_chunk(
         ]
 
     delta = SimpleNamespace(content=content, tool_calls=tc_deltas)
-    choice = SimpleNamespace(delta=delta)
+    choice = SimpleNamespace(delta=delta, finish_reason=None)
     return SimpleNamespace(usage=usage_obj, choices=[choice])
 
 
@@ -249,6 +249,109 @@ class TestOllamaAdapter:
         )
 
         assert result == "A brief summary."
+
+
+class TestParseTextToolCalls:
+    """Unit tests for the _parse_text_tool_calls fallback helper."""
+
+    def test_bare_json_single_call(self) -> None:
+        from agent.providers.ollama import _parse_text_tool_calls
+
+        text = '{"name": "list_directory", "arguments": {"path": "./"}}'
+        calls = _parse_text_tool_calls(text)
+        assert len(calls) == 1
+        assert calls[0].name == "list_directory"
+        assert calls[0].arguments == {"path": "./"}
+
+    def test_tagged_single_call(self) -> None:
+        from agent.providers.ollama import _parse_text_tool_calls
+
+        text = '<tool_call>{"name": "read_file", "arguments": {"path": "/tmp/x.txt"}}</tool_call>'
+        calls = _parse_text_tool_calls(text)
+        assert len(calls) == 1
+        assert calls[0].name == "read_file"
+        assert calls[0].arguments == {"path": "/tmp/x.txt"}
+
+    def test_tagged_multiple_calls(self) -> None:
+        from agent.providers.ollama import _parse_text_tool_calls
+
+        text = (
+            '<tool_call>{"name": "list_directory", "arguments": {"path": "."}}</tool_call>\n'
+            '<tool_call>{"name": "read_file", "arguments": {"path": "README.md"}}</tool_call>'
+        )
+        calls = _parse_text_tool_calls(text)
+        assert len(calls) == 2
+        assert calls[0].name == "list_directory"
+        assert calls[1].name == "read_file"
+
+    def test_non_tool_call_text_returns_empty(self) -> None:
+        from agent.providers.ollama import _parse_text_tool_calls
+
+        calls = _parse_text_tool_calls("Sure, here are the files in the directory.")
+        assert calls == []
+
+    def test_bare_json_with_string_arguments(self) -> None:
+        from agent.providers.ollama import _parse_text_tool_calls
+
+        args_str = json.dumps({"path": "/tmp"})
+        text = json.dumps({"name": "read_file", "arguments": args_str})
+        calls = _parse_text_tool_calls(text)
+        assert len(calls) == 1
+        assert calls[0].arguments == {"path": "/tmp"}
+
+    def test_empty_string_returns_empty(self) -> None:
+        from agent.providers.ollama import _parse_text_tool_calls
+
+        assert _parse_text_tool_calls("") == []
+
+
+class TestOllamaFallbackToolCallPath:
+    """Integration-level tests for the fallback path in stream_completion."""
+
+    def _make_adapter(self) -> OllamaAdapter:
+        return OllamaAdapter(base_url="http://localhost:11434")
+
+    async def test_fallback_parses_bare_json_tool_call(self, mocker: MockerFixture) -> None:
+        adapter = self._make_adapter()
+        raw_content = '{"name": "list_directory", "arguments": {"path": "."}}'
+        chunks = [
+            _make_chunk(content=raw_content),
+            _make_chunk(usage={"prompt_tokens": 10, "completion_tokens": 8}),
+        ]
+        mocker.patch.object(
+            adapter._client.chat.completions,
+            "create",
+            new=mocker.AsyncMock(return_value=_AsyncIterator(chunks)),
+        )
+        message, _ = await adapter.stream_completion(
+            messages=[Message(role=Role.USER, content="list files")],
+            tools=[],
+            model="qwen2.5-coder:7b",
+            max_tokens=256,
+        )
+        assert len(message.tool_calls) == 1
+        assert message.tool_calls[0].name == "list_directory"
+        assert message.content == ""
+
+    async def test_fallback_ignores_plain_text(self, mocker: MockerFixture) -> None:
+        adapter = self._make_adapter()
+        chunks = [
+            _make_chunk(content="Here are the files."),
+            _make_chunk(usage={"prompt_tokens": 5, "completion_tokens": 4}),
+        ]
+        mocker.patch.object(
+            adapter._client.chat.completions,
+            "create",
+            new=mocker.AsyncMock(return_value=_AsyncIterator(chunks)),
+        )
+        message, _ = await adapter.stream_completion(
+            messages=[Message(role=Role.USER, content="hello")],
+            tools=[],
+            model="qwen2.5-coder:7b",
+            max_tokens=256,
+        )
+        assert message.tool_calls == []
+        assert message.content == "Here are the files."
 
 
 class TestGetProvider:

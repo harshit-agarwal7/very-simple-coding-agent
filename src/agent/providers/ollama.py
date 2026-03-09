@@ -2,9 +2,10 @@
 
 import json
 import logging
+import re
 from typing import Any
 
-from openai import AsyncOpenAI
+from openai import AsyncOpenAI, AsyncStream
 from openai.types.chat import ChatCompletionChunk
 from rich.console import Console
 from rich.live import Live
@@ -16,6 +17,50 @@ from agent.models import Message, Role, ToolCall, ToolDefinition, Usage
 from agent.providers.base import ProviderAdapter
 
 logger = logging.getLogger(__name__)
+
+# Matches <tool_call>...</tool_call> blocks (Qwen-style native format).
+_TOOL_CALL_TAG_RE = re.compile(r"<tool_call>\s*(\{.*?\})\s*</tool_call>", re.DOTALL)
+
+
+def _parse_text_tool_calls(text: str) -> list[ToolCall]:
+    """Parse tool calls that Ollama leaked into content instead of tool_calls.
+
+    Handles two formats emitted by models like ``qwen2.5-coder``:
+    - Tagged:  ``<tool_call>{"name": ..., "arguments": ...}</tool_call>``
+    - Bare JSON: ``{"name": ..., "arguments": ...}``
+
+    Args:
+        text: Raw assistant content that may contain embedded tool calls.
+
+    Returns:
+        Parsed list of :class:`ToolCall` objects, or empty list if none found.
+    """
+    blobs: list[str] = _TOOL_CALL_TAG_RE.findall(text)
+    if not blobs:
+        # Try interpreting the whole content as a single bare JSON tool call.
+        stripped = text.strip()
+        if stripped.startswith("{") and stripped.endswith("}"):
+            blobs = [stripped]
+
+    calls: list[ToolCall] = []
+    for i, blob in enumerate(blobs):
+        try:
+            obj = json.loads(blob)
+        except json.JSONDecodeError:
+            logger.warning("ollama fallback: failed to parse tool_call blob: %s", blob)
+            continue
+        name = obj.get("name") or obj.get("function")
+        arguments = obj.get("arguments") or obj.get("parameters") or {}
+        if not name:
+            logger.warning("ollama fallback: tool_call blob has no name: %s", obj)
+            continue
+        if isinstance(arguments, str):
+            try:
+                arguments = json.loads(arguments)
+            except json.JSONDecodeError:
+                arguments = {}
+        calls.append(ToolCall(id=f"call_{i}", name=name, arguments=arguments))
+    return calls
 
 
 class OllamaAdapter(ProviderAdapter):
@@ -140,14 +185,13 @@ class OllamaAdapter(ProviderAdapter):
         }
         if wire_tools:
             kwargs["tools"] = wire_tools
+            kwargs["tool_choice"] = "auto"
 
         # Accumulators for assembling the streamed response.
         text_parts: list[str] = []
         # tool_call_id → {id, name, args_fragments}
         tool_calls_acc: dict[int, dict[str, Any]] = {}
         usage = Usage()
-
-        from openai import AsyncStream
 
         accumulated_text = ""
         with Live(
@@ -156,10 +200,11 @@ class OllamaAdapter(ProviderAdapter):
             refresh_per_second=15,
             auto_refresh=True,
         ) as live:
-            raw_stream = await self._client.chat.completions.create(**kwargs)
-            stream: AsyncStream[ChatCompletionChunk] = raw_stream
+            raw_stream: AsyncStream[ChatCompletionChunk] = (
+                await self._client.chat.completions.create(**kwargs)
+            )
 
-            async for chunk in stream:
+            async for chunk in raw_stream:
                 # Capture usage from the final chunk (stream_options).
                 if chunk.usage:
                     usage = Usage(
@@ -183,7 +228,7 @@ class OllamaAdapter(ProviderAdapter):
                     for tc_delta in delta.tool_calls:
                         idx = tc_delta.index
                         if idx not in tool_calls_acc:
-                            tool_calls_acc[idx] = {"id": "", "name": "", "args": ""}
+                            tool_calls_acc[idx] = {"id": f"call_{idx}", "name": "", "args": ""}
                         if tc_delta.id:
                             tool_calls_acc[idx]["id"] = tc_delta.id
                         if tc_delta.function and tc_delta.function.name:
@@ -197,20 +242,30 @@ class OllamaAdapter(ProviderAdapter):
 
         # Assemble tool calls.
         assembled_tool_calls: list[ToolCall] = []
-        for idx in sorted(tool_calls_acc):
-            raw = tool_calls_acc[idx]
-            try:
-                arguments = json.loads(raw["args"]) if raw["args"] else {}
-            except json.JSONDecodeError:
-                logger.warning("Failed to parse tool call arguments: %s", raw["args"])
-                arguments = {}
-            assembled_tool_calls.append(
-                ToolCall(id=raw["id"], name=raw["name"], arguments=arguments)
-            )
+        content_text = "".join(text_parts)
+
+        if not tool_calls_acc and content_text:
+            # Ollama's OpenAI-compat layer may not translate the model's native
+            # <tool_call> format into structured tool_calls.  Detect and parse it.
+            fallback = _parse_text_tool_calls(content_text)
+            if fallback:
+                assembled_tool_calls = fallback
+                content_text = ""  # suppress raw JSON from the assistant message
+        else:
+            for idx in sorted(tool_calls_acc):
+                raw = tool_calls_acc[idx]
+                try:
+                    arguments = json.loads(raw["args"]) if raw["args"] else {}
+                except json.JSONDecodeError:
+                    logger.warning("Failed to parse tool call arguments: %s", raw["args"])
+                    arguments = {}
+                assembled_tool_calls.append(
+                    ToolCall(id=raw["id"], name=raw["name"], arguments=arguments)
+                )
 
         assembled = Message(
             role=Role.ASSISTANT,
-            content="".join(text_parts),
+            content=content_text,
             tool_calls=assembled_tool_calls,
         )
         return assembled, usage

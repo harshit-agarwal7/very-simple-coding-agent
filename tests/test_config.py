@@ -17,7 +17,8 @@ class TestLoadConfig:
     def test_loads_from_env(self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
         monkeypatch.setenv("OPENROUTER_API_KEY", "sk-test-key")
         monkeypatch.setenv("AGENT_MODEL", "anthropic/claude-opus-4-6")
-        # Prevent default.toml from being found by providing a blank slate.
+        # Suppress default.toml so provider defaults to openrouter (no TOML default).
+        monkeypatch.setattr("agent.config._DEFAULT_CONFIG_PATH", tmp_path / "noexist.toml")
         cfg = load_config()
         assert cfg.api_key == "sk-test-key"
         assert cfg.model == "anthropic/claude-opus-4-6"
@@ -58,11 +59,14 @@ system_prompt = "Be concise."
         with pytest.raises(FileNotFoundError):
             load_config(config_path=Path("/nonexistent/path/config.toml"))
 
-    def test_missing_api_key_raises(self, monkeypatch: pytest.MonkeyPatch) -> None:
+    def test_missing_api_key_raises(self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
         monkeypatch.delenv("OPENROUTER_API_KEY", raising=False)
         monkeypatch.setenv("AGENT_MODEL", "openai/gpt-4o")
+        # Use a custom config that sets openrouter so the API key check applies.
+        cfg_file = tmp_path / "cfg.toml"
+        cfg_file.write_text('provider = "openrouter"\nmodel = "openai/gpt-4o"\n', encoding="utf-8")
         with pytest.raises(ValueError, match="API key"):
-            load_config()
+            load_config(config_path=cfg_file)
 
     def test_missing_model_raises(self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
         monkeypatch.setenv("OPENROUTER_API_KEY", "sk-test")
