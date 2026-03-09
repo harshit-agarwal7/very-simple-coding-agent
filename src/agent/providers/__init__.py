@@ -4,6 +4,7 @@ from rich.console import Console
 
 from agent.models import Config
 from agent.providers.base import ProviderAdapter
+from agent.providers.ollama import OllamaAdapter
 from agent.providers.openrouter import OpenRouterAdapter
 
 
@@ -22,7 +23,9 @@ def get_provider(config: Config, console: Console | None = None) -> ProviderAdap
     """
     if config.provider == "openrouter":
         return OpenRouterAdapter(api_key=config.api_key, console=console)
+    elif config.provider == "ollama":
+        return OllamaAdapter(base_url=config.ollama_base_url, console=console)
     raise ValueError(f"Unknown provider: {config.provider!r}")
 
 
-__all__ = ["ProviderAdapter", "get_provider"]
+__all__ = ["OllamaAdapter", "ProviderAdapter", "get_provider"]

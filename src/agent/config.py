@@ -61,8 +61,11 @@ def load_config(config_path: Path | None = None) -> Config:
     if system_prompt_env := os.environ.get("AGENT_SYSTEM_PROMPT"):
         data["system_prompt"] = system_prompt_env
 
+    if ollama_base_url_env := os.environ.get("OLLAMA_BASE_URL"):
+        data["ollama_base_url"] = ollama_base_url_env
+
     # Validate required fields.
-    if not data.get("api_key"):
+    if not data.get("api_key") and data.get("provider") != "ollama":
         raise ValueError(
             "No API key found. Set the OPENROUTER_API_KEY environment variable."
         )
@@ -74,8 +77,9 @@ def load_config(config_path: Path | None = None) -> Config:
     return Config(
         provider=str(data.get("provider", "openrouter")),
         model=str(data["model"]),
-        api_key=str(data["api_key"]),
+        api_key=str(data.get("api_key", "")),
         max_tokens=int(str(data.get("max_tokens", 4096))),
         max_history_tokens=int(str(data.get("max_history_tokens", 80_000))),
         system_prompt=str(data.get("system_prompt", "")),
+        ollama_base_url=str(data.get("ollama_base_url", "http://localhost:11434")),
     )

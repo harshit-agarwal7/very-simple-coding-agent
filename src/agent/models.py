@@ -109,12 +109,13 @@ class Config:
     """Runtime configuration for the agent.
 
     Args:
-        provider: Provider identifier (e.g., 'openrouter').
+        provider: Provider identifier (e.g., 'openrouter', 'ollama').
         model: Model string (e.g., 'anthropic/claude-opus-4-6').
-        api_key: API key for the provider.
+        api_key: API key for the provider (not required for 'ollama').
         max_tokens: Maximum tokens per completion.
         max_history_tokens: Soft cap on history before compaction is suggested.
         system_prompt: System prompt prepended to every request.
+        ollama_base_url: Base URL for Ollama API (default: http://localhost:11434).
     """
 
     provider: str
@@ -123,3 +124,4 @@ class Config:
     max_tokens: int = 4096
     max_history_tokens: int = 80_000
     system_prompt: str = ""
+    ollama_base_url: str = "http://localhost:11434"
