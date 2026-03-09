@@ -304,6 +304,19 @@ class TestParseTextToolCalls:
 
         assert _parse_text_tool_calls("") == []
 
+    def test_bare_json_multiple_calls(self) -> None:
+        from agent.providers.ollama import _parse_text_tool_calls
+
+        text = (
+            '{"name": "think", "arguments": {"thought": "reasoning"}} '
+            '{"name": "write_file", "arguments": {"path": "/tmp/x", "content": "hello"}}'
+        )
+        calls = _parse_text_tool_calls(text)
+        assert len(calls) == 2
+        assert calls[0].name == "think"
+        assert calls[1].name == "write_file"
+        assert calls[1].arguments == {"path": "/tmp/x", "content": "hello"}
+
 
 class TestOllamaFallbackToolCallPath:
     """Integration-level tests for the fallback path in stream_completion."""

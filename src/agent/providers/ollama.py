@@ -37,10 +37,25 @@ def _parse_text_tool_calls(text: str) -> list[ToolCall]:
     """
     blobs: list[str] = _TOOL_CALL_TAG_RE.findall(text)
     if not blobs:
-        # Try interpreting the whole content as a single bare JSON tool call.
+        # Extract one or more bare JSON objects using raw_decode so that
+        # multiple concatenated objects (e.g. two tool calls separated by
+        # whitespace) are each captured individually.
         stripped = text.strip()
-        if stripped.startswith("{") and stripped.endswith("}"):
-            blobs = [stripped]
+        if stripped.startswith("{"):
+            decoder = json.JSONDecoder()
+            pos = 0
+            while pos < len(stripped):
+                remaining = stripped[pos:]
+                trimmed = remaining.lstrip()
+                if not trimmed:
+                    break
+                actual_pos = pos + (len(remaining) - len(trimmed))
+                try:
+                    obj, end_idx = decoder.raw_decode(trimmed)
+                    blobs.append(json.dumps(obj))
+                    pos = actual_pos + end_idx
+                except json.JSONDecodeError:
+                    break
 
     calls: list[ToolCall] = []
     for i, blob in enumerate(blobs):
