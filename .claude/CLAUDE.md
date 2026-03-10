@@ -22,7 +22,7 @@
 - Write tests alongside implementation, not after
 - Run tests before presenting work as done
 - Ensure that whenever you make a change, you check if any existing tests need to be updated.
-- Run `ruff check` and `mypy` before finishing
+- Run `ruff format`, `ruff check`, and `mypy` before finishing
 
 ## Others
 - Use the astarl ecosystem (uv, ruff, etc) as much as possible for requirement management, linitng, etc
