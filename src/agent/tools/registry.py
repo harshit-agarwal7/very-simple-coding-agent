@@ -53,7 +53,5 @@ def get_safe_tool_names() -> set[str]:
         Set of tool name strings.
     """
     return {
-        name
-        for name, entry in TOOL_REGISTRY.items()
-        if entry.definition.safety == ToolSafety.SAFE
+        name for name, entry in TOOL_REGISTRY.items() if entry.definition.safety == ToolSafety.SAFE
     }

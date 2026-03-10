@@ -13,6 +13,7 @@ from agent.tools.registry import TOOL_REGISTRY
 # Helpers
 # ---------------------------------------------------------------------------
 
+
 def _make_tool_call(name: str, arguments: dict | None = None) -> ToolCall:
     return ToolCall(id="tc-1", name=name, arguments=arguments or {})
 

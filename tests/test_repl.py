@@ -50,6 +50,7 @@ class TestDoPlanTurn:
         loop = asyncio.get_event_loop()
 
         mock_run_turn = mocker.patch("agent.repl.run_turn", new_callable=AsyncMock)
+
         # After the planning phase run_turn, inject a plan message into history.
         async def planning_side_effect(**kwargs: object) -> None:
             history.append(Message(role=Role.ASSISTANT, content="Here is the plan."))

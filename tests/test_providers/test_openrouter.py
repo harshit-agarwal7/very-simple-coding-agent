@@ -156,9 +156,7 @@ class TestOpenRouterAdapter:
         adapter = self._make_adapter()
         args_json = json.dumps({"path": "/tmp/foo.txt"})
         chunks = [
-            _make_chunk(
-                tool_calls=[{"id": "tc-1", "name": "read_file", "arguments": args_json}]
-            ),
+            _make_chunk(tool_calls=[{"id": "tc-1", "name": "read_file", "arguments": args_json}]),
             _make_chunk(usage={"prompt_tokens": 20, "completion_tokens": 10}),
         ]
         mock_stream = _AsyncIterator(chunks)
@@ -207,9 +205,7 @@ class TestOpenRouterAdapter:
         adapter = self._make_adapter()
         args_json = json.dumps({"path": "/tmp/foo.txt"})
         chunks = [
-            _make_chunk(
-                tool_calls=[{"id": "tc-1", "name": "read_file", "arguments": args_json}]
-            ),
+            _make_chunk(tool_calls=[{"id": "tc-1", "name": "read_file", "arguments": args_json}]),
             _make_chunk(usage={"prompt_tokens": 20, "completion_tokens": 10}),
         ]
         mocker.patch.object(

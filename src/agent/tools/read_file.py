@@ -11,8 +11,7 @@ logger = logging.getLogger(__name__)
 _DEFINITION = ToolDefinition(
     name="read_file",
     description=(
-        "Read the contents of a file at the given path. "
-        "Returns the file content as a string."
+        "Read the contents of a file at the given path. Returns the file content as a string."
     ),
     parameters={
         "type": "object",

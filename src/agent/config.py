@@ -66,13 +66,9 @@ def load_config(config_path: Path | None = None) -> Config:
 
     # Validate required fields.
     if not data.get("api_key") and data.get("provider") != "ollama":
-        raise ValueError(
-            "No API key found. Set the OPENROUTER_API_KEY environment variable."
-        )
+        raise ValueError("No API key found. Set the OPENROUTER_API_KEY environment variable.")
     if not data.get("model"):
-        raise ValueError(
-            "No model configured. Set AGENT_MODEL or provide a config file."
-        )
+        raise ValueError("No model configured. Set AGENT_MODEL or provide a config file.")
 
     return Config(
         provider=str(data.get("provider", "openrouter")),

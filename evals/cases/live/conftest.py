@@ -10,9 +10,7 @@ from agent.config import load_config
 from agent.providers.openrouter import OpenRouterAdapter
 
 
-def pytest_collection_modifyitems(
-    items: list[pytest.Item], config: pytest.Config
-) -> None:
+def pytest_collection_modifyitems(items: list[pytest.Item], config: pytest.Config) -> None:
     """Skip all tests in the live/ directory when OPENROUTER_API_KEY is not set."""
     skip = pytest.mark.skip(reason="OPENROUTER_API_KEY not set — skipping live evals")
     for item in items:

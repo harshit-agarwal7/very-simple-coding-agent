@@ -68,9 +68,7 @@ class ScriptedProvider(ProviderAdapter):
             IndexError: When all scripted responses have been consumed.
         """
         if not self._responses:
-            raise IndexError(
-                "ScriptedProvider exhausted — add more scripted_responses to EvalCase"
-            )
+            raise IndexError("ScriptedProvider exhausted — add more scripted_responses to EvalCase")
         self.calls.append(list(messages))
         return self._responses.pop(0)
 

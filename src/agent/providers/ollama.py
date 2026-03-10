@@ -215,9 +215,9 @@ class OllamaAdapter(ProviderAdapter):
             refresh_per_second=15,
             auto_refresh=True,
         ) as live:
-            raw_stream: AsyncStream[ChatCompletionChunk] = (
-                await self._client.chat.completions.create(**kwargs)
-            )
+            raw_stream: AsyncStream[
+                ChatCompletionChunk
+            ] = await self._client.chat.completions.create(**kwargs)
 
             async for chunk in raw_stream:
                 # Capture usage from the final chunk (stream_options).

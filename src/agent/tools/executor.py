@@ -58,9 +58,7 @@ class ToolExecutor:
         Returns:
             True if the user approved, False otherwise.
         """
-        args_display = "\n".join(
-            f"  {k}: {v!r}" for k, v in tool_call.arguments.items()
-        )
+        args_display = "\n".join(f"  {k}: {v!r}" for k, v in tool_call.arguments.items())
         print(
             f"\n┌─ Tool request ──────────────────────────────\n"
             f"│ Tool : {tool_call.name}\n"

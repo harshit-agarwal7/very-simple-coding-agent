@@ -106,7 +106,7 @@ class TestToolSequencing:
             ],
             tool_outputs={"read_file": "data", "think": "ok"},
             expected_tool_calls=[
-                ExpectedToolCall(name="think"),   # expects think first
+                ExpectedToolCall(name="think"),  # expects think first
                 ExpectedToolCall(name="read_file"),  # then read_file
             ],
             tool_call_order="ordered",

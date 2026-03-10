@@ -108,8 +108,7 @@ async def run_repl(
         # Print usage summary after each turn.
         u = history.usage
         console.print(
-            f"[dim]  tokens: {u.input_tokens} in / {u.output_tokens} out "
-            f"(total {u.total})[/dim]"
+            f"[dim]  tokens: {u.input_tokens} in / {u.output_tokens} out (total {u.total})[/dim]"
         )
 
 
