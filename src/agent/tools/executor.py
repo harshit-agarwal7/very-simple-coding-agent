@@ -4,10 +4,13 @@ import asyncio
 import logging
 from typing import Any
 
+from rich.console import Console
+
 from agent.models import ToolCall, ToolResult, ToolSafety
 from agent.tools.registry import TOOL_REGISTRY
 
 logger = logging.getLogger(__name__)
+_console = Console()
 
 
 class ToolExecutor:
@@ -47,7 +50,18 @@ class ToolExecutor:
                     is_error=True,
                 )
 
-        return await self._run_tool(tool_call, entry.fn, tool_call.arguments)
+        first_val = next(iter(tool_call.arguments.values()), "") if tool_call.arguments else ""
+        arg_str = f"  {str(first_val)[:60]}" if first_val else ""
+        _console.print(f"[dim]  ⚙  {tool_call.name}{arg_str}[/dim]")
+
+        result = await self._run_tool(tool_call, entry.fn, tool_call.arguments)
+
+        if result.is_error:
+            _console.print(f"[red]  ✗  {tool_call.name}[/red]")
+        else:
+            _console.print(f"[dim]  ✓  {tool_call.name}[/dim]")
+
+        return result
 
     async def _request_approval(self, tool_call: ToolCall) -> bool:
         """Print a proposal box and ask the user for confirmation.
@@ -59,7 +73,7 @@ class ToolExecutor:
             True if the user approved, False otherwise.
         """
         args_display = "\n".join(f"  {k}: {v!r}" for k, v in tool_call.arguments.items())
-        print(
+        _console.print(
             f"\n┌─ Tool request ──────────────────────────────\n"
             f"│ Tool : {tool_call.name}\n"
             f"│ Args :\n{args_display}\n"
