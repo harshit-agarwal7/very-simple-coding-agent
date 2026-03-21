@@ -156,6 +156,7 @@ class OpenRouterAdapter(ProviderAdapter):
         from openai import AsyncStream
 
         accumulated_text = ""
+        agent_label_printed = False
         with Live(
             Spinner("dots", text=" Thinking…"),
             console=self._console,
@@ -180,6 +181,9 @@ class OpenRouterAdapter(ProviderAdapter):
 
                 # Accumulate and render text tokens as markdown.
                 if delta.content:
+                    if not agent_label_printed:
+                        self._console.rule("[dim]Agent[/dim]", style="dim")
+                        agent_label_printed = True
                     accumulated_text += delta.content
                     text_parts.append(delta.content)
                     live.update(Markdown(accumulated_text, code_theme="monokai"), refresh=True)

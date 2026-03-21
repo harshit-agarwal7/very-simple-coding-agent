@@ -5,21 +5,24 @@ import logging
 from typing import Any
 
 from rich.console import Console
+from rich.panel import Panel
+from rich.table import Table
 
 from agent.models import ToolCall, ToolResult, ToolSafety
 from agent.tools.registry import TOOL_REGISTRY
 
 logger = logging.getLogger(__name__)
-_console = Console()
 
 _TOOL_LABELS: dict[str, str] = {
-    "read_file": "Reading file",
-    "write_file": "Writing file",
-    "search_files": "Searching files",
-    "list_directory": "Listing directory",
-    "execute_command": "Executing command",
-    "think": "Thinking",
+    "read_file": "Read file",
+    "write_file": "Write file",
+    "search_files": "Search files",
+    "list_directory": "List directory",
+    "execute_command": "Execute command",
+    "think": "Think",
 }
+
+_LABEL_WIDTH = 16
 
 
 def _truncate_value(value: Any, max_len: int = 100) -> str:
@@ -37,13 +40,16 @@ class ToolExecutor:
     first via stdin (off the event loop via ``run_in_executor``).
     """
 
+    def __init__(self, console: Console | None = None) -> None:
+        self._console = console if console is not None else Console()
+
     async def execute(self, tool_call: ToolCall, *, iteration: int = 0) -> ToolResult:
         """Execute a tool call, prompting for approval if necessary.
 
         Args:
             tool_call: The tool invocation requested by the assistant.
-            iteration: The loop iteration index (0-based); used to prefix the
-                status line with the human-readable step number.
+            iteration: The loop iteration index (0-based); unused but kept for
+                API compatibility.
 
         Returns:
             A :class:`~agent.models.ToolResult` with the tool's output or an
@@ -72,19 +78,20 @@ class ToolExecutor:
         first_val = next(iter(tool_call.arguments.values()), "") if tool_call.arguments else ""
         arg_str = f"  {str(first_val)[:60]}" if first_val else ""
         label = _TOOL_LABELS.get(tool_call.name, tool_call.name)
-        step_prefix = f"step {iteration + 1}  "
+        label_padded = label.ljust(_LABEL_WIDTH)
 
-        result = await self._run_tool(tool_call, entry.fn, tool_call.arguments)
+        with self._console.status(f"  {label_padded}{arg_str}", spinner="dots"):
+            result = await self._run_tool(tool_call, entry.fn, tool_call.arguments)
 
         if result.is_error:
-            _console.print(f"[red]  {step_prefix}✗  {label}{arg_str}[/red]")
+            self._console.print(f"[red]  ✗  {label_padded}{arg_str}[/red]")
         else:
-            _console.print(f"[dim]  {step_prefix}✓  {label}{arg_str}[/dim]")
+            self._console.print(f"[dim]  ✓  {label_padded}{arg_str}[/dim]")
 
         return result
 
     async def _request_approval(self, tool_call: ToolCall) -> bool:
-        """Print a proposal box and ask the user for confirmation.
+        """Show a Rich Panel and ask the user for confirmation.
 
         Args:
             tool_call: The tool call needing approval.
@@ -92,14 +99,16 @@ class ToolExecutor:
         Returns:
             True if the user approved, False otherwise.
         """
-        args_display = "\n".join(
-            f"  {k}: {_truncate_value(v)}" for k, v in tool_call.arguments.items()
-        )
-        _console.print(
-            f"\n┌─ Tool request ──────────────────────────────\n"
-            f"│ Tool : {tool_call.name}\n"
-            f"│ Args :\n{args_display}\n"
-            f"└─────────────────────────────────────────────"
+        table = Table(show_header=False, box=None, padding=(0, 1))
+        for k, v in tool_call.arguments.items():
+            table.add_row(f"[dim]{k}[/dim]", _truncate_value(v))
+
+        self._console.print(
+            Panel(
+                table,
+                title="[bold]Tool Request[/bold]",
+                subtitle=f"[bold]{tool_call.name}[/bold]",
+            )
         )
         loop = asyncio.get_event_loop()
         answer = await loop.run_in_executor(None, input, "Allow? [y/N] ")

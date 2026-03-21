@@ -46,7 +46,7 @@ async def run_repl(
         provider: LLM provider adapter.
     """
     history = History(max_history_tokens=config.max_history_tokens)
-    executor = ToolExecutor()
+    executor = ToolExecutor(console=console)
     loop = asyncio.get_event_loop()
     plan_mode: bool = False
 
@@ -108,7 +108,7 @@ async def run_repl(
         # Print usage summary after each turn.
         u = history.usage
         console.print(
-            f"[dim]  tokens: {u.input_tokens} in / {u.output_tokens} out (total {u.total})[/dim]"
+            f"[dim]  ↑ {u.input_tokens:,}  ↓ {u.output_tokens:,}  ∑ {u.total:,} tokens[/dim]"
         )
 
 
@@ -160,11 +160,10 @@ async def _do_plan_turn(
         "",
     )
 
-    console.print("\n[bold cyan]" + "─" * 60 + "[/bold cyan]")
-    console.print("[bold cyan]PLAN[/bold cyan]")
-    console.print("[bold cyan]" + "─" * 60 + "[/bold cyan]")
+    console.print()
+    console.rule("[bold cyan]Plan[/bold cyan]", style="cyan")
     console.print(plan_text or "[dim](no plan text produced)[/dim]")
-    console.print("[bold cyan]" + "─" * 60 + "[/bold cyan]")
+    console.rule(style="cyan dim")
 
     answer: str = await loop.run_in_executor(None, input, "Proceed? [y/N] ")
     if answer.strip().lower() != "y":

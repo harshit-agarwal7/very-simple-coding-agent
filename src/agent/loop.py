@@ -2,8 +2,6 @@
 
 import logging
 
-from rich.console import Console
-
 from agent.memory import History
 from agent.models import Config, Message, Role, ToolDefinition
 from agent.providers.base import ProviderAdapter
@@ -11,7 +9,6 @@ from agent.tools.executor import ToolExecutor
 from agent.tools.registry import get_tool_definitions
 
 logger = logging.getLogger(__name__)
-_console = Console()
 
 # Maximum number of tool-call iterations per user turn (safety guard).
 _MAX_ITERATIONS = 20
