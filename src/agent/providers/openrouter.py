@@ -162,6 +162,7 @@ class OpenRouterAdapter(ProviderAdapter):
             console=self._console,
             refresh_per_second=15,
             auto_refresh=True,
+            transient=True,
         ) as live:
             raw_stream = await self._client.chat.completions.create(**kwargs)
             stream: AsyncStream[ChatCompletionChunk] = raw_stream
@@ -201,9 +202,8 @@ class OpenRouterAdapter(ProviderAdapter):
                         if tc_delta.function and tc_delta.function.arguments:
                             tool_calls_acc[idx]["args"] += tc_delta.function.arguments
 
-            # Clear the spinner if no text was generated (tool-call-only response).
-            if not accumulated_text:
-                live.update("")
+        if accumulated_text:
+            self._console.print(Markdown(accumulated_text, code_theme="monokai"))
 
         # Assemble tool calls.
         assembled_tool_calls: list[ToolCall] = []

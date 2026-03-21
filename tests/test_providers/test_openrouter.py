@@ -226,7 +226,7 @@ class TestOpenRouterAdapter:
             max_tokens=256,
         )
 
-        mock_live.update.assert_called_with("")
+        mock_live.update.assert_not_called()
 
     # --- summarize ---
 
