@@ -31,11 +31,12 @@ class StubToolExecutor(ToolExecutor):
         self._real_tools: set[str] = real_tools or set()
         self.calls: list[ToolCall] = []
 
-    async def execute(self, tool_call: ToolCall) -> ToolResult:
+    async def execute(self, tool_call: ToolCall, *, iteration: int = 0) -> ToolResult:
         """Execute a tool call, recording it and bypassing the approval gate.
 
         Args:
             tool_call: The tool invocation requested by the assistant.
+            iteration: Unused in the stub; accepted to match the base class signature.
 
         Returns:
             A :class:`~agent.models.ToolResult` with either the canned output

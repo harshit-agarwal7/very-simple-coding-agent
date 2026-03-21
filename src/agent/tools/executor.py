@@ -12,6 +12,15 @@ from agent.tools.registry import TOOL_REGISTRY
 logger = logging.getLogger(__name__)
 _console = Console()
 
+_TOOL_LABELS: dict[str, str] = {
+    "read_file": "Reading file",
+    "write_file": "Writing file",
+    "search_files": "Searching files",
+    "list_directory": "Listing directory",
+    "execute_command": "Executing command",
+    "think": "Thinking",
+}
+
 
 class ToolExecutor:
     """Dispatches tool calls from the assistant to their implementations.
@@ -20,11 +29,13 @@ class ToolExecutor:
     first via stdin (off the event loop via ``run_in_executor``).
     """
 
-    async def execute(self, tool_call: ToolCall) -> ToolResult:
+    async def execute(self, tool_call: ToolCall, *, iteration: int = 0) -> ToolResult:
         """Execute a tool call, prompting for approval if necessary.
 
         Args:
             tool_call: The tool invocation requested by the assistant.
+            iteration: The loop iteration index (0-based); used to prefix the
+                status line with the human-readable step number.
 
         Returns:
             A :class:`~agent.models.ToolResult` with the tool's output or an
@@ -52,14 +63,15 @@ class ToolExecutor:
 
         first_val = next(iter(tool_call.arguments.values()), "") if tool_call.arguments else ""
         arg_str = f"  {str(first_val)[:60]}" if first_val else ""
-        _console.print(f"[dim]  ⚙  {tool_call.name}{arg_str}[/dim]")
+        label = _TOOL_LABELS.get(tool_call.name, tool_call.name)
+        step_prefix = f"step {iteration + 1}  "
 
         result = await self._run_tool(tool_call, entry.fn, tool_call.arguments)
 
         if result.is_error:
-            _console.print(f"[red]  ✗  {tool_call.name}[/red]")
+            _console.print(f"[red]  {step_prefix}✗  {label}{arg_str}[/red]")
         else:
-            _console.print(f"[dim]  ✓  {tool_call.name}[/dim]")
+            _console.print(f"[dim]  {step_prefix}✓  {label}{arg_str}[/dim]")
 
         return result
 

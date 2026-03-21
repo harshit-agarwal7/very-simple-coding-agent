@@ -55,9 +55,6 @@ async def run_turn(
     for iteration in range(_MAX_ITERATIONS):
         logger.debug("loop iteration %d", iteration)
 
-        if iteration > 0:
-            _console.print(f"[dim]  ↺  step {iteration + 1} — reasoning with tool results…[/dim]")
-
         logger.debug(f"history = {history.messages}")
         # REASON — stream the next completion.
         response_message, usage = await provider.stream_completion(
@@ -78,7 +75,7 @@ async def run_turn(
         # ACT + OBSERVE — execute each tool call and append results.
         for tool_call in response_message.tool_calls:
             logger.debug("Executing tool: %s", tool_call.name)
-            result = await tool_executor.execute(tool_call)
+            result = await tool_executor.execute(tool_call, iteration=iteration)
             history.append(
                 Message(
                     role=Role.TOOL,
