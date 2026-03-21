@@ -22,6 +22,14 @@ _TOOL_LABELS: dict[str, str] = {
 }
 
 
+def _truncate_value(value: Any, max_len: int = 100) -> str:
+    """Truncate a value for display, appending '...' if truncated."""
+    s = repr(value)
+    if len(s) > max_len:
+        return s[:max_len] + "..."
+    return s
+
+
 class ToolExecutor:
     """Dispatches tool calls from the assistant to their implementations.
 
@@ -84,7 +92,9 @@ class ToolExecutor:
         Returns:
             True if the user approved, False otherwise.
         """
-        args_display = "\n".join(f"  {k}: {v!r}" for k, v in tool_call.arguments.items())
+        args_display = "\n".join(
+            f"  {k}: {_truncate_value(v)}" for k, v in tool_call.arguments.items()
+        )
         _console.print(
             f"\n┌─ Tool request ──────────────────────────────\n"
             f"│ Tool : {tool_call.name}\n"
